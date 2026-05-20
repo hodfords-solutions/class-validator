@@ -239,7 +239,7 @@ export class JitCompiler {
         }
       }
       if (!nestedType) {
-        nestedType = resolveNestedType(meta.target , meta.propertyName);
+        nestedType = resolveNestedType(meta.target, meta.propertyName);
       }
     }
 

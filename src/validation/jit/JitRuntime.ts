@@ -76,7 +76,7 @@ export function makeValidationArguments(
   constraints: any[]
 ): ValidationArguments {
   return {
-    targetName: object && object.constructor ? (object.constructor ).name : undefined,
+    targetName: object && object.constructor ? object.constructor.name : undefined,
     property,
     object,
     value,

@@ -144,7 +144,7 @@ export class Validator {
     const object = typeof objectOrSchemaName === 'string' ? (objectOrValidationOptions as object) : objectOrSchemaName;
     const options =
       typeof objectOrSchemaName === 'string' ? maybeValidatorOptions : (objectOrValidationOptions as ValidationOptions);
-    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName ) : undefined;
+    const schema = typeof objectOrSchemaName === 'string' ? objectOrSchemaName : undefined;
 
     const errors = this.runJit(object, schema, options, /* ignoreAsync */ true);
     return stripEmptyErrors(errors);
@@ -162,7 +162,7 @@ export class Validator {
     const object = typeof objectOrSchemaName === 'string' ? (objectOrValidationOptions as object) : objectOrSchemaName;
     const options =
       typeof objectOrSchemaName === 'string' ? maybeValidatorOptions : (objectOrValidationOptions as ValidationOptions);
-    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName ) : undefined;
+    const schema = typeof objectOrSchemaName === 'string' ? objectOrSchemaName : undefined;
 
     const ctx = this.jitCache.buildContext(options, false);
     const errors = this.runJit(object, schema, options, false, ctx);
