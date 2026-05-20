@@ -1,7 +1,8 @@
 name: CD
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
 jobs:
   publish:
     name: Publish to NPM
