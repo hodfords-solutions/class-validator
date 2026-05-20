@@ -33,7 +33,6 @@ export class JitCompiler {
    * Returns a function with the {@link CompiledValidator} signature.
    */
   compile(target: Function | string): CompiledValidator {
-    const targetCtor: Function | undefined = typeof target === 'string' ? undefined : target;
     const schemaName: string | undefined = typeof target === 'string' ? target : undefined;
 
     const allMetadata = this.collectMetadata(target);
@@ -240,7 +239,7 @@ export class JitCompiler {
         }
       }
       if (!nestedType) {
-        nestedType = resolveNestedType(meta.target as Function, meta.propertyName);
+        nestedType = resolveNestedType(meta.target , meta.propertyName);
       }
     }
 
@@ -322,7 +321,9 @@ export class JitCompiler {
     const lines: string[] = [];
     lines.push(`  var options = ctx.validatorOptions;`);
     if (knownProps.size === 0) {
-      lines.push(`  var forbidUnknownValues = !options || options.forbidUnknownValues === undefined || options.forbidUnknownValues !== false;`);
+      lines.push(
+        `  var forbidUnknownValues = !options || options.forbidUnknownValues === undefined || options.forbidUnknownValues !== false;`
+      );
       lines.push(`  if (forbidUnknownValues) { errors.push(runtime.makeUnknownValueError(object, options)); return; }`);
       lines.push(`  return;`);
       return lines.join('\n');
@@ -343,7 +344,9 @@ export class JitCompiler {
       lines.push(`  (function() {`);
       lines.push(`    var value = object[${propLit}];`);
       lines.push(`    var errRef = { error: undefined };`);
-      lines.push(`    var getError = function() { return runtime.ensureError(errRef, errors, object, value, ${propLit}, options); };`);
+      lines.push(
+        `    var getError = function() { return runtime.ensureError(errRef, errors, object, value, ${propLit}, options); };`
+      );
 
       // 1) Promise unwrap — if value is a Promise and a PROMISE_VALIDATION
       //    slot exists, await the value then re-enter validation. We mirror
@@ -397,7 +400,9 @@ export class JitCompiler {
     // (b) skip*-properties gates (apply to non-IS_DEFINED validators only).
     lines.push(`if (value === undefined && options && options.skipUndefinedProperties === true) return;`);
     lines.push(`if (value === null && options && options.skipNullProperties === true) return;`);
-    lines.push(`if ((value === null || value === undefined) && options && options.skipMissingProperties === true) return;`);
+    lines.push(
+      `if ((value === null || value === undefined) && options && options.skipMissingProperties === true) return;`
+    );
 
     // (c) ConditionalValidation gate — all predicates must return truthy.
     if (plan.conditional.length) {

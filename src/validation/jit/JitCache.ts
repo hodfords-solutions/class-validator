@@ -50,21 +50,20 @@ export class JitCache {
    * by looking up the compiled fn for the nested value's runtime class.
    */
   buildContext(options: any, ignoreAsync: boolean): JitRuntimeContext {
-    const cache = this;
     const ctx: JitRuntimeContext = {
       validatorOptions: options,
       awaitingPromises: [],
       ignoreAsync,
-      dispatchNested(
+      dispatchNested: (
         nestedObject: any,
         errors: ValidationError[],
         c: JitRuntimeContext,
         explicitType?: Function
-      ): void {
+      ): void => {
         // Prefer the compile-time resolved nested type — required when
         // validating plain objects whose `constructor` is just `Object`.
         const ctor = explicitType || nestedObject.constructor;
-        const fn = cache.get(ctor);
+        const fn = this.get(ctor);
         fn(nestedObject, errors, c);
       },
     };

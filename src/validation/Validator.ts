@@ -16,6 +16,20 @@ import { getMetadataStorage } from '../metadata/MetadataStorage';
  */
 export class Validator {
   // -------------------------------------------------------------------------
+  // Private Properties
+  // -------------------------------------------------------------------------
+
+  /** Lazily-built per-Validator JIT cache. */
+  private _jitCache: JitCache | undefined;
+
+  private get jitCache(): JitCache {
+    if (!this._jitCache) {
+      this._jitCache = new JitCache(getMetadataStorage());
+    }
+    return this._jitCache;
+  }
+
+  // -------------------------------------------------------------------------
   // Public Methods
   // -------------------------------------------------------------------------
 
@@ -130,24 +144,10 @@ export class Validator {
     const object = typeof objectOrSchemaName === 'string' ? (objectOrValidationOptions as object) : objectOrSchemaName;
     const options =
       typeof objectOrSchemaName === 'string' ? maybeValidatorOptions : (objectOrValidationOptions as ValidationOptions);
-    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName as string) : undefined;
+    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName ) : undefined;
 
     const errors = this.runJit(object, schema, options, /* ignoreAsync */ true);
     return stripEmptyErrors(errors);
-  }
-
-  // -------------------------------------------------------------------------
-  // Private Properties
-  // -------------------------------------------------------------------------
-
-  /** Lazily-built per-Validator JIT cache. */
-  private _jitCache: JitCache | undefined;
-
-  private get jitCache(): JitCache {
-    if (!this._jitCache) {
-      this._jitCache = new JitCache(getMetadataStorage());
-    }
-    return this._jitCache;
   }
 
   /**
@@ -162,7 +162,7 @@ export class Validator {
     const object = typeof objectOrSchemaName === 'string' ? (objectOrValidationOptions as object) : objectOrSchemaName;
     const options =
       typeof objectOrSchemaName === 'string' ? maybeValidatorOptions : (objectOrValidationOptions as ValidationOptions);
-    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName as string) : undefined;
+    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName ) : undefined;
 
     const ctx = this.jitCache.buildContext(options, false);
     const errors = this.runJit(object, schema, options, false, ctx);

@@ -20,12 +20,7 @@ export interface JitRuntimeContext {
    * nested type for plain validation), it is preferred over
    * `object.constructor`.
    */
-  dispatchNested: (
-    object: any,
-    errors: ValidationError[],
-    ctx: JitRuntimeContext,
-    explicitType?: Function
-  ) => void;
+  dispatchNested: (object: any, errors: ValidationError[], ctx: JitRuntimeContext, explicitType?: Function) => void;
 }
 
 /**
@@ -74,9 +69,14 @@ export interface ValidationSlot {
  * Build the ValidationArguments object expected by user-supplied message
  * functions and validators.
  */
-export function makeValidationArguments(object: any, value: any, property: string, constraints: any[]): ValidationArguments {
+export function makeValidationArguments(
+  object: any,
+  value: any,
+  property: string,
+  constraints: any[]
+): ValidationArguments {
   return {
-    targetName: object && object.constructor ? (object.constructor as any).name : undefined,
+    targetName: object && object.constructor ? (object.constructor ).name : undefined,
     property,
     object,
     value,
@@ -108,10 +108,20 @@ export function ensureError(
 ): ValidationError {
   if (errorRef.error) return errorRef.error;
   const e = new ValidationError();
-  if (!options || !options.validationError || options.validationError.target === undefined || options.validationError.target === true) {
+  if (
+    !options ||
+    !options.validationError ||
+    options.validationError.target === undefined ||
+    options.validationError.target === true
+  ) {
     e.target = object;
   }
-  if (!options || !options.validationError || options.validationError.value === undefined || options.validationError.value === true) {
+  if (
+    !options ||
+    !options.validationError ||
+    options.validationError.value === undefined ||
+    options.validationError.value === true
+  ) {
     e.value = value;
   }
   e.property = property;
@@ -126,7 +136,11 @@ export function ensureError(
  * Resolve an error message (decorator `message`, falling back to the
  * constraint's defaultMessage when not dismissed by ValidatorOptions).
  */
-export function resolveMessage(slot: ValidationSlot, args: ValidationArguments, options: ValidatorOptions | undefined): string {
+export function resolveMessage(
+  slot: ValidationSlot,
+  args: ValidationArguments,
+  options: ValidatorOptions | undefined
+): string {
   let message: any = slot.message || '';
   if (!slot.message && (!options || !options.dismissDefaultMessages)) {
     if (slot.defaultMessageFn) {
@@ -164,6 +178,8 @@ export function runSlot(
   const options = ctx.validatorOptions;
   if (slot.async && ctx.ignoreAsync) return;
   if (slot.validateIfFn && !slot.validateIfFn(object, value)) return;
+  const validateFn = slot.validateFn;
+  if (!validateFn) return;
 
   // each: true — apply per-item over Array/Set/Map
   if (slot.each && (Array.isArray(value) || value instanceof Set || value instanceof Map)) {
@@ -172,7 +188,7 @@ export function runSlot(
     let anyAsync = false;
     for (let i = 0; i < arr.length; i++) {
       const args = makeValidationArguments(object, value, property, slot.constraints);
-      const r = slot.validateFn!(arr[i], args);
+      const r = validateFn(arr[i], args);
       if (isPromise(r)) anyAsync = true;
       subResults[i] = r;
     }
@@ -203,7 +219,7 @@ export function runSlot(
 
   // single value
   const args = makeValidationArguments(object, value, property, slot.constraints);
-  const result = slot.validateFn!(value, args);
+  const result = validateFn(value, args);
   if (isPromise(result)) {
     ctx.awaitingPromises.push(
       result.then((isValid: boolean) => {
@@ -273,10 +289,20 @@ export function runNested(
     const options = ctx.validatorOptions;
     arrayLikeValue.forEach((subValue: any, indexOrKey: any) => {
       const childErr = new ValidationError();
-      if (!options || !options.validationError || options.validationError.target === undefined || options.validationError.target === true) {
+      if (
+        !options ||
+        !options.validationError ||
+        options.validationError.target === undefined ||
+        options.validationError.target === true
+      ) {
         childErr.target = value;
       }
-      if (!options || !options.validationError || options.validationError.value === undefined || options.validationError.value === true) {
+      if (
+        !options ||
+        !options.validationError ||
+        options.validationError.value === undefined ||
+        options.validationError.value === true
+      ) {
         childErr.value = subValue;
       }
       childErr.property = isMap ? String(indexOrKey) : indexOrKey.toString();
@@ -313,7 +339,12 @@ export function runNested(
  */
 export function makeUnknownValueError(object: any, options: ValidatorOptions | undefined): ValidationError {
   const e = new ValidationError();
-  if (!options || !options.validationError || options.validationError.target === undefined || options.validationError.target === true) {
+  if (
+    !options ||
+    !options.validationError ||
+    options.validationError.target === undefined ||
+    options.validationError.target === true
+  ) {
     e.target = object;
   }
   e.value = undefined;
@@ -342,10 +373,18 @@ export function handleWhitelist(
   if (options && options.forbidNonWhitelisted) {
     for (const prop of notAllowed) {
       const e = new ValidationError();
-      if (!options.validationError || options.validationError.target === undefined || options.validationError.target === true) {
+      if (
+        !options.validationError ||
+        options.validationError.target === undefined ||
+        options.validationError.target === true
+      ) {
         e.target = object;
       }
-      if (!options.validationError || options.validationError.value === undefined || options.validationError.value === true) {
+      if (
+        !options.validationError ||
+        options.validationError.value === undefined ||
+        options.validationError.value === true
+      ) {
         e.value = object[prop];
       }
       e.property = prop;
