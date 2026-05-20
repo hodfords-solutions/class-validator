@@ -63,6 +63,52 @@ export class Validator {
   }
 
   /**
+   * Performs validation of the given plain object against the decorators of
+   * the supplied class. Unlike {@link validate}, the plain object is used
+   * directly (no plainToInstance step) — useful when callers only need to
+   * validate the shape of an already-deserialised payload (e.g. an HTTP body)
+   * without the overhead of constructing class instances.
+   *
+   * For nested validation, the runtime resolves the nested class via the
+   * class-transformer `@Type()` decorator (when class-transformer is installed)
+   * or via `Reflect.getMetadata('design:type', …)` (when reflect-metadata is
+   * polyfilled). Otherwise the nested object's own constructor is used.
+   */
+  validatePlain<T extends object>(
+    object: object,
+    classObject: new (...args: any[]) => T,
+    options?: ValidatorOptions
+  ): Promise<ValidationError[]> {
+    const ctx = this.jitCache.buildContext(options, false);
+    const errors = this.runJitPlain(classObject, object, options, false, ctx);
+    return Promise.all(ctx.awaitingPromises).then(() => stripEmptyErrors(errors));
+  }
+
+  /**
+   * Synchronous variant of {@link validatePlain}. Ignores async constraints.
+   */
+  validatePlainSync<T extends object>(
+    object: object,
+    classObject: new (...args: any[]) => T,
+    options?: ValidatorOptions
+  ): ValidationError[] {
+    const errors = this.runJitPlain(classObject, object, options, true);
+    return stripEmptyErrors(errors);
+  }
+
+  /**
+   * Promise-rejecting variant of {@link validatePlain}.
+   */
+  async validatePlainOrReject<T extends object>(
+    object: object,
+    classObject: new (...args: any[]) => T,
+    options?: ValidatorOptions
+  ): Promise<void> {
+    const errors = await this.validatePlain(object, classObject, options);
+    if (errors.length) return Promise.reject(errors);
+  }
+
+  /**
    * Performs validation of the given object based on decorators used in given object class.
    * NOTE: This method completely ignores all async validations.
    */
@@ -151,6 +197,34 @@ export class Validator {
 
     const target: Function | string = schema ? schema : object.constructor;
     const fn = this.jitCache.get(target);
+    const ctx = sharedCtx || this.jitCache.buildContext(options, ignoreAsync);
+    const errors: ValidationError[] = [];
+    fn(object, errors, ctx);
+    return errors;
+  }
+
+  /**
+   * Run the compiled validator for `object` against an explicit class target.
+   * Skips the `object.constructor` lookup used by {@link runJit} so plain
+   * objects can be validated without going through plainToInstance first.
+   */
+  private runJitPlain(
+    classObject: Function,
+    object: any,
+    options: ValidatorOptions | undefined,
+    ignoreAsync: boolean,
+    sharedCtx?: ReturnType<JitCache['buildContext']>
+  ): ValidationError[] {
+    if (object == null || typeof object !== 'object') {
+      const executor = new ValidationExecutor(this, options);
+      executor.ignoreAsyncValidations = ignoreAsync;
+      const errs: ValidationError[] = [];
+      executor.execute(object, undefined, errs);
+      if (sharedCtx) for (const p of executor.awaitingPromises) sharedCtx.awaitingPromises.push(p);
+      return errs;
+    }
+
+    const fn = this.jitCache.get(classObject);
     const ctx = sharedCtx || this.jitCache.buildContext(options, ignoreAsync);
     const errors: ValidationError[] = [];
     fn(object, errors, ctx);

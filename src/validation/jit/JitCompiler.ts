@@ -4,6 +4,7 @@ import { ValidationTypes } from '../ValidationTypes';
 import { ValidatorOptions } from '../ValidatorOptions';
 import { CompiledValidator, ValidationSlot } from './JitRuntime';
 import * as Runtime from './JitRuntime';
+import { resolveNestedType } from './resolveNestedType';
 
 /**
  * The JIT compiler turns a class's accumulated validation metadata into a
@@ -224,6 +225,25 @@ export class JitCompiler {
       // as the constraint key; named custom validations override it above.
     }
 
+    let nestedType: Function | undefined;
+    if (meta.type === ValidationTypes.NESTED_VALIDATION && typeof meta.target === 'function') {
+      // Allow callers to pin the nested type explicitly via the decorator's
+      // `validationTypeOptions` escape hatch (e.g. `{ type: () => Address }`),
+      // otherwise fall back to class-transformer @Type / design:type lookup.
+      const opt = meta.validationTypeOptions;
+      if (opt && typeof opt.type === 'function') {
+        try {
+          const t = opt.type();
+          if (typeof t === 'function') nestedType = t;
+        } catch {
+          // ignore — bad type provider falls back to runtime resolution
+        }
+      }
+      if (!nestedType) {
+        nestedType = resolveNestedType(meta.target as Function, meta.propertyName);
+      }
+    }
+
     return {
       validateFn,
       defaultMessageFn,
@@ -235,6 +255,7 @@ export class JitCompiler {
       validateIfFn: meta.validateIf,
       context: meta.context,
       groupApplies: this.buildGroupApplies(meta),
+      nestedType,
     };
   }
 

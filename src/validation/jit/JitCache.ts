@@ -55,8 +55,15 @@ export class JitCache {
       validatorOptions: options,
       awaitingPromises: [],
       ignoreAsync,
-      dispatchNested(nestedObject: any, errors: ValidationError[], c: JitRuntimeContext): void {
-        const ctor = nestedObject.constructor;
+      dispatchNested(
+        nestedObject: any,
+        errors: ValidationError[],
+        c: JitRuntimeContext,
+        explicitType?: Function
+      ): void {
+        // Prefer the compile-time resolved nested type — required when
+        // validating plain objects whose `constructor` is just `Object`.
+        const ctor = explicitType || nestedObject.constructor;
         const fn = cache.get(ctor);
         fn(nestedObject, errors, c);
       },

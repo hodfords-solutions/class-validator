@@ -16,9 +16,16 @@ export interface JitRuntimeContext {
   /**
    * Validates a nested object by looking up (and compiling on demand) the
    * validator for its runtime constructor, then pushing the resulting errors
-   * into `errors`.
+   * into `errors`. When `explicitType` is supplied (compile-time resolved
+   * nested type for plain validation), it is preferred over
+   * `object.constructor`.
    */
-  dispatchNested: (object: any, errors: ValidationError[], ctx: JitRuntimeContext) => void;
+  dispatchNested: (
+    object: any,
+    errors: ValidationError[],
+    ctx: JitRuntimeContext,
+    explicitType?: Function
+  ) => void;
 }
 
 /**
@@ -54,6 +61,13 @@ export interface ValidationSlot {
   context?: any;
   /** Predicate that determines if this metadata applies given runtime options. */
   groupApplies: (options: ValidatorOptions | undefined) => boolean;
+  /**
+   * Resolved nested target class (NESTED_VALIDATION slots only). Set at
+   * compile time when class-transformer `@Type()` or reflect-metadata
+   * `design:type` exposes it, so plain nested values dispatch to the right
+   * compiled validator instead of relying on `value.constructor === Object`.
+   */
+  nestedType?: Function;
 }
 
 /**
@@ -283,7 +297,7 @@ export function runNested(
   }
   if (value !== null && typeof value === 'object') {
     const err = getError();
-    ctx.dispatchNested(value, err.children, ctx);
+    ctx.dispatchNested(value, err.children, ctx, slot.nestedType);
     return;
   }
   // primitive — error

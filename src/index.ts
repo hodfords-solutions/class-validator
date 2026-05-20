@@ -137,6 +137,42 @@ export function validateSync(
 }
 
 /**
+ * Validates a plain object against the decorators of the supplied class
+ * without first transforming it into a class instance. Useful when callers
+ * (e.g. HTTP request handlers) just need to verify a payload's shape and want
+ * to skip the cost of plainToInstance.
+ */
+export function validatePlain<T extends object>(
+  object: object,
+  classObject: new (...args: any[]) => T,
+  validatorOptions?: ValidatorOptions
+): Promise<ValidationError[]> {
+  return getFromContainer(Validator).validatePlain(object, classObject, validatorOptions);
+}
+
+/**
+ * Synchronous variant of {@link validatePlain} — ignores async constraints.
+ */
+export function validatePlainSync<T extends object>(
+  object: object,
+  classObject: new (...args: any[]) => T,
+  validatorOptions?: ValidatorOptions
+): ValidationError[] {
+  return getFromContainer(Validator).validatePlainSync(object, classObject, validatorOptions);
+}
+
+/**
+ * Promise-rejecting variant of {@link validatePlain}.
+ */
+export function validatePlainOrReject<T extends object>(
+  object: object,
+  classObject: new (...args: any[]) => T,
+  validatorOptions?: ValidatorOptions
+): Promise<void> {
+  return getFromContainer(Validator).validatePlainOrReject(object, classObject, validatorOptions);
+}
+
+/**
  * Registers a new validation schema.
  */
 export function registerSchema(schema: ValidationSchema): void {
