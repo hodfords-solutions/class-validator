@@ -2,9 +2,17 @@ import { ValidationError } from './ValidationError';
 import { ValidatorOptions } from './ValidatorOptions';
 import { ValidationExecutor } from './ValidationExecutor';
 import { ValidationOptions } from '../decorator/ValidationOptions';
+import { JitCache } from './jit/JitCache';
+import { stripEmptyErrors } from './jit/JitRuntime';
+import { getMetadataStorage } from '../metadata/MetadataStorage';
 
 /**
  * Validator performs validation of the given object based on its metadata.
+ *
+ * As of 0.16, this dispatches through a JIT-compiled per-class validator
+ * function (see {@link JitCache}). The legacy {@link ValidationExecutor} is
+ * kept for parity testing and for the rare case where a runtime feature
+ * isn't supported by the compiler.
  */
 export class Validator {
   // -------------------------------------------------------------------------
@@ -76,18 +84,26 @@ export class Validator {
     const object = typeof objectOrSchemaName === 'string' ? (objectOrValidationOptions as object) : objectOrSchemaName;
     const options =
       typeof objectOrSchemaName === 'string' ? maybeValidatorOptions : (objectOrValidationOptions as ValidationOptions);
-    const schema = typeof objectOrSchemaName === 'string' ? objectOrSchemaName : undefined;
+    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName as string) : undefined;
 
-    const executor = new ValidationExecutor(this, options);
-    executor.ignoreAsyncValidations = true;
-    const validationErrors: ValidationError[] = [];
-    executor.execute(object, schema, validationErrors);
-    return executor.stripEmptyErrors(validationErrors);
+    const errors = this.runJit(object, schema, options, /* ignoreAsync */ true);
+    return stripEmptyErrors(errors);
   }
 
   // -------------------------------------------------------------------------
   // Private Properties
   // -------------------------------------------------------------------------
+
+  /** Lazily-built per-Validator JIT cache. */
+  private _jitCache: JitCache | undefined;
+
+  private get jitCache(): JitCache {
+    if (!this._jitCache) {
+      this._jitCache = new JitCache(getMetadataStorage());
+    }
+    return this._jitCache;
+  }
+
   /**
    * Performs validation of the given object based on decorators or validation schema.
    * Common method for `validateOrReject` and `validate` methods.
@@ -100,14 +116,44 @@ export class Validator {
     const object = typeof objectOrSchemaName === 'string' ? (objectOrValidationOptions as object) : objectOrSchemaName;
     const options =
       typeof objectOrSchemaName === 'string' ? maybeValidatorOptions : (objectOrValidationOptions as ValidationOptions);
-    const schema = typeof objectOrSchemaName === 'string' ? objectOrSchemaName : undefined;
+    const schema = typeof objectOrSchemaName === 'string' ? (objectOrSchemaName as string) : undefined;
 
-    const executor = new ValidationExecutor(this, options);
-    const validationErrors: ValidationError[] = [];
-    executor.execute(object, schema, validationErrors);
+    const ctx = this.jitCache.buildContext(options, false);
+    const errors = this.runJit(object, schema, options, false, ctx);
+    return Promise.all(ctx.awaitingPromises).then(() => stripEmptyErrors(errors));
+  }
 
-    return Promise.all(executor.awaitingPromises).then(() => {
-      return executor.stripEmptyErrors(validationErrors);
-    });
+  /**
+   * Run the compiled validator for `object` (or `schema`). Falls back to the
+   * legacy {@link ValidationExecutor} only if the JIT compiler can't be used
+   * (currently: never — but we keep the seam for safety).
+   */
+  private runJit(
+    object: any,
+    schema: string | undefined,
+    options: ValidatorOptions | undefined,
+    ignoreAsync: boolean,
+    sharedCtx?: ReturnType<JitCache['buildContext']>
+  ): ValidationError[] {
+    if (object == null || typeof object !== 'object') {
+      // Mirrors legacy executor: forbidUnknownValues triggers an error,
+      // otherwise (forbidUnknownValues=false) we have nothing to do. The
+      // compiler-generated function will handle both cases when given a
+      // target with no metadata; but if `object` itself isn't an object,
+      // route to the legacy executor for compatibility.
+      const executor = new ValidationExecutor(this, options);
+      executor.ignoreAsyncValidations = ignoreAsync;
+      const errs: ValidationError[] = [];
+      executor.execute(object, schema, errs);
+      if (sharedCtx) for (const p of executor.awaitingPromises) sharedCtx.awaitingPromises.push(p);
+      return errs;
+    }
+
+    const target: Function | string = schema ? schema : object.constructor;
+    const fn = this.jitCache.get(target);
+    const ctx = sharedCtx || this.jitCache.buildContext(options, ignoreAsync);
+    const errors: ValidationError[] = [];
+    fn(object, errors, ctx);
+    return errors;
   }
 }

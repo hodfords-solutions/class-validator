@@ -15,8 +15,22 @@ export class MetadataStorage {
   private validationMetadatas: Map<any, ValidationMetadata[]> = new Map();
   private constraintMetadatas: Map<any, ConstraintMetadata[]> = new Map();
 
+  /**
+   * Incremented every time validation or constraint metadata is added.
+   * Used by the JIT compiler to invalidate cached compiled validators when
+   * new decorators are registered after a class has already been compiled.
+   */
+  private _version: number = 0;
+
   get hasValidationMetaData(): boolean {
     return !!this.validationMetadatas.size;
+  }
+
+  /**
+   * Returns the current metadata version. Bumps whenever metadata is added.
+   */
+  get version(): number {
+    return this._version;
   }
 
   // -------------------------------------------------------------------------
@@ -42,6 +56,7 @@ export class MetadataStorage {
     } else {
       this.validationMetadatas.set(metadata.target, [metadata]);
     }
+    this._version++;
   }
 
   /**
@@ -55,6 +70,7 @@ export class MetadataStorage {
     } else {
       this.constraintMetadatas.set(metadata.target, [metadata]);
     }
+    this._version++;
   }
 
   /**

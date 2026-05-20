@@ -21,6 +21,8 @@ export * from './validation/Validator';
 export * from './validation-schema/ValidationSchema';
 export * from './register-decorator';
 export * from './metadata/MetadataStorage';
+export { JitCache } from './validation/jit/JitCache';
+export { JitCompiler } from './validation/jit/JitCompiler';
 
 // -------------------------------------------------------------------------
 // Shortcut methods for api users
